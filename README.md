@@ -25,8 +25,8 @@ lab1-shell
 |	|	|	main.c
 |	|---pwd
 |	|	|	main.c
-|   |	common.h
-|	|	common.c
+|   |	command.h
+|	|	command.c
 |	|	shell.c
 |	|	CMakeLists.txt
 |--- test（测试代码）

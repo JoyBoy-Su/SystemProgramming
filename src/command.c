@@ -4,13 +4,13 @@
 #include <fcntl.h>
 
 // 初始化pipe状态机
-void initPipe(enum pipe_state* state)
+void initPipe(PipeState* state)
 {
     *state = P_INIT;
 }
 
 // 更新pipe状态机
-void updatePipe(enum pipe_state* state)
+void updatePipe(PipeState* state)
 {
     switch (*state)
     {

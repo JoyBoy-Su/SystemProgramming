@@ -10,13 +10,17 @@ enum redirect_type {RT_FILE, RT_PIPE};
 enum redirect_mode_t {RMT_OVERWRITE, RMT_APPEND};
 enum pipe_state {P_INIT, P_WRITECLOSED, P_CLOSED, P_DESTORY};
 
+typedef enum redirect_type RedirectType;
+typedef enum redirect_mode_t RedirectModeType;
+typedef enum pipe_state PipeState;
+
 typedef struct redirect
 {
     union {
         struct {
             int fd;
             const char* filename;
-            enum redirect_mode_t mode;
+            RedirectModeType mode;
         } file;
         struct {
           	int fd;
@@ -24,7 +28,7 @@ typedef struct redirect
             char write;
         } pipe;
     } info;
-    enum redirect_type type;
+    RedirectType type;
 } Redirect;
 
 typedef struct command
@@ -48,8 +52,8 @@ void freeCommands(Command* cmd, int count);
 int redirect(const Redirect* redirect);
 
 // 初始化pipe状态机
-void initPipe(enum pipe_state* state);
+void initPipe(PipeState* state);
 // 更新pipe状态机
-void updatePipe(enum pipe_state* state);
+void updatePipe(PipeState* state);
 
 #endif
