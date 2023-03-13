@@ -3,8 +3,11 @@
 
 #define COMMAND_NAME_LENGTH 16
 
-enum redirect_type {File, Pipe};
-enum redirect_mode_t {Overwrite, Append};
+#define PIPE_RPORT 0
+#define PIPE_WPORT 1
+
+enum redirect_type {RT_FILE, RT_PIPE};
+enum redirect_mode_t {RMT_OVERWRITE, RMT_APPEND};
 enum pipe_state {P_INIT, P_WRITECLOSED, P_CLOSED, P_DESTORY};
 
 typedef struct redirect
@@ -17,7 +20,8 @@ typedef struct redirect
         } file;
         struct {
           	int fd;
-            int pipe_fd;					// parent proc alloc pipe fd;
+            int pipe_fd[2];					// parent proc alloc pipe fd;
+            char write;
         } pipe;
     } info;
     enum redirect_type type;
@@ -41,7 +45,7 @@ int getCommands(const char* line, Command* commands);
 void freeCommands(Command* cmd, int count);
 
 // 根据参数对进程进行文件描述符重定向
-void redirect(const Redirect* redirect);
+int redirect(const Redirect* redirect);
 
 // 初始化pipe状态机
 void initPipe(enum pipe_state* state);

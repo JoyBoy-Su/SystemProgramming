@@ -1,6 +1,49 @@
-# System Programming
-此项目为系统程序设计课程实验，各个实验内容如下，详见对应分支：
+# lab1-shell
 
-- lab1-shell：实现一个简单的shell程序以读取命令行，能够完成执行用户输入的命令、I/O重定向、管道操作；
-- lab1-adio：编写一个高效的IO函数库，主要实现四个接口 **my_open**、 **my_read**、**my_write**、**my_close**；
+实现一个简单的shell程序以读取命令行，能够完成执行用户输入的命令、I/O重定向、管道操作；
 
+##### 项目结构
+
+```
+lab1-shell
+|	README.md
+|	.gitignore
+|   CMakeLists.txt    
+|--- doc（项目文档）
+|   |   Shell.md
+|   |	设计文档.md
+|   |---imgs
+|       |   ...
+|--- src（shell源代码）
+|	|---cat
+|	|	|	main.c
+|	|---ls
+|	|	|	main.c
+|	|---echo
+|	|	|	main.c
+|	|---mkdir
+|	|	|	main.c
+|	|---pwd
+|	|	|	main.c
+|   |	common.h
+|	|	common.c
+|	|	shell.c
+|	|	CMakeLists.txt
+|--- test（测试代码）
+|	...
+```
+
+##### 运行
+
+项目运行由cmake管理，需要配置cmake的Linux环境。进入项目根目录后执行如下指令：
+
+```shell
+mkdir build
+cd build
+cmake ..
+make
+```
+
+执行过`cmake .. `指令后若项目结构不变则不需要重新执行，只需要执行make即可。
+
+目前的`CMakeLists.txt`中只配置了测试文件`test`下的文件编译指令，即make后只会得到测试可执行文件。
