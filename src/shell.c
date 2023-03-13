@@ -8,7 +8,7 @@
 
 #define LINE_LENGTH 512
 
-void getline(char* line);
+void mygetline(char* line);
 
 int main(int argc, char const *argv[])
 {
@@ -23,7 +23,7 @@ int main(int argc, char const *argv[])
     {
         // TODO: get line
         memset(line, 0, LINE_LENGTH);
-        getline(line);
+        mygetline(line);
         /* parse line to get commands */
         int cnt = getCommands(line, commands);
         if (cnt < 0)
@@ -35,6 +35,8 @@ int main(int argc, char const *argv[])
         for (int i = 0; i < cnt; i++)
         {
             Command* command = commands + i;
+            // TODO: valid errno
+            
             /* create pipe or not */
             if (command->pipe)
             {
@@ -97,9 +99,13 @@ int main(int argc, char const *argv[])
     return 0;
 }
 
-void getline(char* line)
+void mygetline(char* line)
 {
-    int character, index = 0;
+    int character, last = 0, index = 0;
     while ((character = getc(stdin)) != '\n')
+    {
+        if (character == ' ' && last == ' ') continue;  /* clear blank */
         line[index++] = (char) character;
+        last = character;
+    }
 }

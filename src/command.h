@@ -2,6 +2,7 @@
 #define __COMMAND_H
 
 #define COMMAND_NAME_LENGTH 16
+#define FILE_NAME_LENGTH 32
 
 #define PIPE_RPORT 0
 #define PIPE_WPORT 1
@@ -19,7 +20,7 @@ typedef struct redirect
     union {
         struct {
             int fd;
-            const char* filename;
+            char filename[FILE_NAME_LENGTH];
             RedirectModeType mode;
         } file;
         struct {
@@ -34,13 +35,15 @@ typedef struct redirect
 typedef struct command
 {
     // child proc
-    char name[COMMAND_NAME_LENGTH];		// 指令对应的可执行文件名，处理ls -l和ll这种对应同一elf文件的情况
+    char name[COMMAND_NAME_LENGTH];     // 指令对应的可执行文件名，处理ls -l和ll这种对应同一elf文件的情况
     char** argv;						// line中参数二级指针
    	int argc;							// line中参数的个数
     // shell proc
     Redirect* redirects;				// 该指令需要进行的一系列重定向操作
     int redirectc;						// 重定向操作的个数，便于回收内存
     unsigned char pipe;					// 是否需要创建pipe，最后一个redirect对象为pipe的重定向
+    // errno
+    unsigned int errno;                 // 是否出错，以及出错码
 } Command;
 
 // 由用户输入的line，填充commands与signal
