@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 
 /* Pipe State 部分 */
 
@@ -54,11 +55,16 @@ int redirect(const Redirect* redirect)
     else if (redirect->type == RT_FILE)
     {
         // 若是文件重定向，需要由child进程打开文件，并在完成重定向后关闭
-        printf("redirect: fd %d -> file %s", redirect->info.file.fd, redirect->info.file.filename);
+        // Note: 这里printf如果不加'\n'的话会被缓冲掉，不显示在终端；
+        // 而如果不用标准io库，而用read/write不会有这个问题
+        // printf("redirect: fd %d -> file %s\n", redirect->info.file.fd, redirect->info.file.filename);
+        // write(STDOUT_FILENO, "redirect: fd -> file", 10);
         // 2、打开文件，得到描述符old_fd
         int mode = O_WRONLY | O_CREAT;
         if (redirect->info.file.mode == RMT_APPEND) mode |= O_APPEND;
-        int file_fd = open(redirect->info.file.filename, mode);
+        else mode |= O_TRUNC;
+        umask(0000);
+        int file_fd = open(redirect->info.file.filename, mode, 0777);
         if (file_fd == -1) return -1;
         // 3、调用dup2进行重定向
         dup2(file_fd, redirect->info.file.fd);

@@ -46,7 +46,6 @@ int main(int argc, char const *argv[])
             /* create pipe or not */
             if (command->pipe)
             {
-                // TODO: delete this if
                 if (i == cnt - 1)
                 {
                     fprintf(stderr, "pipe write proc is the last command!\n");
@@ -54,7 +53,7 @@ int main(int argc, char const *argv[])
                 }
                 if (pipe(pipe_ids) < 0)
                 {
-                    fprintf(stderr, "create pipe failed!\n");
+                    perror("create pipe failed");
                     continue;
                 }
                 /* write proc (last redirect object) */
@@ -71,7 +70,7 @@ int main(int argc, char const *argv[])
             pid_t pid = fork();
             if (pid < 0)
             {
-                fprintf(stderr, "create child proc failed!\n");
+                perror("create child proc failed");
                 return 0;
             }
             /* child proc */
@@ -79,7 +78,8 @@ int main(int argc, char const *argv[])
             {
                 /* preprocess: redirect */
                 Redirect** redirects = command->redirects;
-                for (int j = 0; j < command->redirectc; j++) redirect(redirects[j]);
+                for (int j = 0; j < command->redirectc; j++)
+                    if (redirect(redirects[j]) == -1) perror("redirect error");
                 /* exec */
                 execv(command->argv[0], command->argv);
             }
@@ -89,7 +89,7 @@ int main(int argc, char const *argv[])
                 if (wait(NULL) < 0)
                 {
                     // TODO: error handler or signal interruption
-                    fprintf(stderr, "parent wait error!\n");
+                    perror("parent wait error");
                     return 0;
                 }
                 /* update pipe state and close pipe in parent proc */
