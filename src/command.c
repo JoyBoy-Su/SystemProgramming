@@ -70,25 +70,13 @@ int redirect(const Redirect* redirect)
 /* line -> command 部分 */
 
 // 将instrct对应的elf文件名复制到elfname，返回0代表成功（指令没有出错）
-int instruct2elfname(const char* instruct, char* elfname, int len)
+int validInstructName(const char* instruct)
 {
     if (strcmp(instruct, "ls") == 0 || strcmp(instruct, "pwd") == 0 ||
         strcmp(instruct, "cat") == 0 || strcmp(instruct, "echo") == 0 ||
-        strcmp(instruct, "mkdir") == 0)
-    {
-        memcpy(elfname, instruct, len);
+        strcmp(instruct, "mkdir") == 0 || strcmp(instruct, "hello") == 0) 
         return 0;
-    }
-    // else if (strcmp(instruct, "ll") == 0)
-    // {
-    //     memcpy(elfname, "ls", 2);
-    //     return 0;
-    // }
-    else
-    {
-        memcpy(elfname, instruct, len);
-        return ERR_CMD_NOT_FOUND;
-    }
+    return -1;
 }
 
 // 为oldv所指向的空间扩充increment * size个字节，并返回扩充后的首地址
@@ -105,12 +93,22 @@ char* increaseSize(char* oldv, int cnt, size_t size, int increment)
     return newv;
 }
 
+char** addArgv(char** argv, int argc, char* arg)
+{
+    /* alloc a bigger argv */
+    argv = (char**) increaseSize(
+        (char*)argv, argc, sizeof(char*), CMD_ARGV_INCREMENT);
+    /* insert into argv */
+    argv[argc] = arg;
+    return argv;
+}
+
 // 为redirects增加一个重定向对象（insert一个指针）
 Redirect** addRedirect(Redirect** redirects, int redirectc, Redirect* rp)
 {
     redirects = (Redirect**) increaseSize(
         (char*) redirects, redirectc, sizeof(Redirect*), CMD_REDIRECT_INCREMENT);
-    memcpy(redirects[redirectc], rp, sizeof(Redirect));
+    redirects[redirectc] = rp;
     return redirects;
 }
 
@@ -122,7 +120,6 @@ void initCommand(Command* command)
     command->pipe = 0;
     command->redirectc = 0;
     command->redirects = NULL;
-    memset(command->name, 0, COMMAND_NAME_LENGTH);
 }
 
 // 由用户输入的line，填充commands与signal
@@ -130,11 +127,11 @@ int getCommands(const char* line, Command* command)
 {
     char iterator;
     int left = 0, right = 0;
-    char unnamed = 1;
     int cmd_cnt = 0;
+    Command* cp = command;
+    char fragment[FRG_SIZE] = {0};
 
     /* read strings */
-    char fragment[FRG_SIZE] = {0};
     while (line[right] != '\0')
     {
         /* generate a fragment */
@@ -180,7 +177,6 @@ int getCommands(const char* line, Command* command)
             }
             command->redirects = addRedirect(command->redirects, command->redirectc, rp);
             command->redirectc++;
-            if (rp) free(rp);
             continue;
         }
         /* '|' pipe */
@@ -191,9 +187,8 @@ int getCommands(const char* line, Command* command)
             rp->type = RT_PIPE;
             rp->info.pipe.fd = STDOUT_FILENO;
             rp->info.pipe.write = 1;
-            command->redirects = (command->redirects, command->redirectc, rp);
+            command->redirects = addRedirect(command->redirects, command->redirectc, rp);
             command->redirectc++;
-            free(rp);
             /* read next instruct */
             left = right + 1;
             for (right = left; (iterator = line[right]) != '\0'; right++)
@@ -205,47 +200,43 @@ int getCommands(const char* line, Command* command)
                 /* move to next command */
                 command++;
                 cmd_cnt++;
-                int result = instruct2elfname(fragment, command->name, right - left);
-                if (result == 0) 
-                {
-                    rp = (Redirect*) malloc(sizeof(Redirect));
-                    rp->type = RT_PIPE;
-                    rp->info.pipe.fd = STDIN_FILENO;
-                    rp->info.pipe.write = 0;
-                    command->redirects = addRedirect(command->redirects, command->redirectc, rp);
-                    command->redirectc++;
-                }
-                else command->errno = ERR_CMD_NOT_FOUND;
+                /* add argv[0] */
+                char* arg = (char*) malloc(right - left + 1);
+                memcpy(arg, fragment, right - left);
+                arg[right - left] = 0;
+                command->argv = addArgv(command->argv, command->argc, arg);
+                command->argc++;
+                /* add redirect */
+                rp = (Redirect*) malloc(sizeof(Redirect));
+                rp->type = RT_PIPE;
+                rp->info.pipe.fd = STDIN_FILENO;
+                rp->info.pipe.write = 0;
+                command->redirects = addRedirect(command->redirects, command->redirectc, rp);
+                command->redirectc++;
                 left = right + 1;
             }
             continue;
         }
-
         /* normal fragment (name or argv) */
         memset(fragment, 0, FRG_SIZE);
         memcpy(fragment, line + left, len);
         // printf("fragment = %s, len = %d\n", fragment, len);
-
-        if (unnamed)
-        {
-            /* set command name */
-            command->errno = instruct2elfname(fragment, command->name, len);
-            unnamed = 0;
-        }
-        else 
-        {
-            /* alloc and fill a arg */
-            char* arg = malloc(len + 1);
-            memcpy(arg, fragment, len);
-            arg[len] = 0;
-            /* alloc a bigger argv */
-            command->argv = (char**) increaseSize(
-                (char*)command->argv, command->argc, sizeof(char*), CMD_ARGV_INCREMENT);
-            /* insert into argv */
-            command->argv[command->argc++] = arg;
-        }
+        /* add a arg */
+        char* arg = (char*) malloc(len + 1);
+        memcpy(arg, fragment, len);
+        arg[len] = 0;
+        command->argv = addArgv(command->argv, command->argc, arg);
+        command->argc++;
         /* update cyclic variable */
         left = right + 1;
+    }
+    cmd_cnt++;
+    /* valid file name */
+    for (int i = 0; i < cmd_cnt; i++)
+    {
+        Command* cmd = cp + i;
+        if (validInstructName(cmd->argv[0]) == -1)
+            cmd->errno = ERR_CMD_NOT_FOUND;
     }
     return cmd_cnt;
 }
@@ -269,7 +260,6 @@ void freeCommands(Command* commands, int count)
         /* other params */
         cp->errno = 0;
         cp->pipe = 0;
-        memset(cp->name, 0, COMMAND_NAME_LENGTH);
     }
 }
 
@@ -309,4 +299,22 @@ void mygetline(char* line)
         }
     }
     if (last == '|' || last == '>' || last == '<') line[index++] = ' ';
+}
+
+void showError(int errno)
+{
+    switch (errno)
+    {
+    case ERR_CMD_NOT_FOUND:
+        fprintf(stderr, "command not found!\n");
+        break;
+    case ERR_REDIRECT_LACK_PARAM:
+        fprintf(stderr, "redirection operation lack parameters!\n");
+        break;
+    case ERR_PIPE_LACK_PARAM:
+        fprintf(stderr, "pipe operation lack parameters!\n");
+        break;
+    default:
+        break;
+    }
 }

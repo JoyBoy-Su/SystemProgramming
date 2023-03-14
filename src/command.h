@@ -44,7 +44,6 @@ typedef struct redirect
 typedef struct command
 {
     // child proc
-    char name[COMMAND_NAME_LENGTH];     // 指令对应的可执行文件名，处理ls -l和ll这种对应同一elf文件的情况
     char** argv;						// line中参数二级指针
    	int argc;							// line中参数的个数
     // shell proc
@@ -69,5 +68,7 @@ int redirect(const Redirect* redirect);
 void initPipe(PipeState* state);
 // 更新pipe状态机
 void updatePipe(PipeState* state);
+
+void showError(int errno);
 
 #endif

@@ -11,32 +11,38 @@
 int main(int argc, char const *argv[])
 {
     // define some variables ...
-    char line[LINE_LENGTH] = {0};
-    int pipe_ids[2] = {0};
-    PipeState pstate;
-
-    Command commands[COMMAND_CNT_PER_LINE];
+    char line[LINE_LENGTH] = {0};               /* input string */
+    int pipe_ids[2] = {0};                      /* pipe id */
+    PipeState pstate;                           /* pipe state machine */
+    Command commands[COMMAND_CNT_PER_LINE];     /* line -> command */
     for (int i = 0; i < COMMAND_CNT_PER_LINE; i++) initCommand(commands + i);
 
     // loop
     while (1)
     {
-        // TODO: get line
+        write(STDOUT_FILENO, "$ ", 2);
+        // get line
         memset(line, 0, LINE_LENGTH);
         mygetline(line);
+        // printf("mygetline: %s\n", line);
         /* parse line to get commands */
         int cnt = getCommands(line, commands);
-        if (cnt < 0)
-        {
-            // TODO: error handler
-        }
-        
+        if (cnt <= 0) continue;
+        // printf("get cnt: %d\n", cnt);
         /* execute each command */
         for (int i = 0; i < cnt; i++)
         {
             Command* command = commands + i;
-            // TODO: valid errno
-            
+            /* command error */
+            if (command->errno)
+            {
+                showError(command->errno);
+                continue;
+            }
+            // printf("command: %s\targc=%d\n", command->argv[0], command->argc);
+            // for (int i = 0; i < command->argc; i++)
+            //     printf("argv[%d] = %s ", i, command->argv[i]);
+            // printf("\n");
             /* create pipe or not */
             if (command->pipe)
             {
@@ -44,11 +50,12 @@ int main(int argc, char const *argv[])
                 if (i == cnt - 1)
                 {
                     fprintf(stderr, "pipe write proc is the last command!\n");
-                    return 0;
+                    continue;
                 }
                 if (pipe(pipe_ids) < 0)
                 {
-                    // TODO: error handler
+                    fprintf(stderr, "create pipe failed!\n");
+                    continue;
                 }
                 /* write proc (last redirect object) */
                 command->redirects[command->redirectc - 1]->info.pipe.pipe_fd[PIPE_RPORT] = pipe_ids[PIPE_RPORT];
@@ -64,16 +71,17 @@ int main(int argc, char const *argv[])
             pid_t pid = fork();
             if (pid < 0)
             {
-                // TODO: error handler
+                fprintf(stderr, "create child proc failed!\n");
+                return 0;
             }
             /* child proc */
             else if (pid == 0)
             {
                 /* preprocess: redirect */
-                Redirect* redirects = command->redirects;
-                for (int j = 0; j < command->redirectc; j++) redirect(redirects + j);
+                Redirect** redirects = command->redirects;
+                for (int j = 0; j < command->redirectc; j++) redirect(redirects[j]);
                 /* exec */
-                execv(command->name, command->argv);
+                execv(command->argv[0], command->argv);
             }
             else 
             {
@@ -81,6 +89,8 @@ int main(int argc, char const *argv[])
                 if (wait(NULL) < 0)
                 {
                     // TODO: error handler or signal interruption
+                    fprintf(stderr, "parent wait error!\n");
+                    return 0;
                 }
                 /* update pipe state and close pipe in parent proc */
                 updatePipe(&pstate);
@@ -95,6 +105,5 @@ int main(int argc, char const *argv[])
         /* free commands */
         freeCommands(commands, cnt);
     }
-    
     return 0;
 }
