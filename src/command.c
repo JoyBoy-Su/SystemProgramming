@@ -54,8 +54,9 @@ int redirect(const Redirect* redirect)
     else if (redirect->type == RT_FILE)
     {
         // 若是文件重定向，需要由child进程打开文件，并在完成重定向后关闭
+        printf("redirect: fd %d -> file %s", redirect->info.file.fd, redirect->info.file.filename);
         // 2、打开文件，得到描述符old_fd
-        int mode = O_WRONLY;
+        int mode = O_WRONLY | O_CREAT;
         if (redirect->info.file.mode == RMT_APPEND) mode |= O_APPEND;
         int file_fd = open(redirect->info.file.filename, mode);
         if (file_fd == -1) return -1;
@@ -88,7 +89,7 @@ char* increaseSize(char* oldv, int cnt, size_t size, int increment)
         newv = (char*) malloc(size * (cnt + increment));
         for (int i = 0; i < cnt * size; i++)
             newv[i] = oldv[i];
-        free(oldv);
+        if (oldv) free(oldv);
     }
     return newv;
 }
@@ -97,7 +98,7 @@ char** addArgv(char** argv, int argc, char* arg)
 {
     /* alloc a bigger argv */
     argv = (char**) increaseSize(
-        (char*)argv, argc, sizeof(char*), CMD_ARGV_INCREMENT);
+        (char*) argv, argc, sizeof(char*), CMD_ARGV_INCREMENT);
     /* insert into argv */
     argv[argc] = arg;
     return argv;
@@ -147,6 +148,7 @@ int getCommands(const char* line, Command* command)
             (len == 2 && line[left] == '>' && line[left + 1] == '>'))
         {
             Redirect* rp = (Redirect*) malloc(sizeof(Redirect));
+            memset(rp, 0, sizeof(Redirect));
             rp->type = RT_FILE;
             /* file.mode */
             rp->info.file.mode = (len == 1) ? RMT_OVERWRITE : RMT_APPEND;
@@ -171,12 +173,11 @@ int getCommands(const char* line, Command* command)
             else
             {
                 memcpy(rp->info.file.filename, line + left, right - left);
+                command->redirects = addRedirect(command->redirects, command->redirectc, rp);
                 command->redirectc++;
                 memcpy(fragment, line + left, right - left);
                 left = right + 1;
             }
-            command->redirects = addRedirect(command->redirects, command->redirectc, rp);
-            command->redirectc++;
             continue;
         }
         /* '|' pipe */
@@ -184,6 +185,7 @@ int getCommands(const char* line, Command* command)
         {
             /* add a new redirect */
             Redirect* rp = (Redirect*) malloc(sizeof(Redirect));
+            memset(rp, 0, sizeof(Redirect));
             rp->type = RT_PIPE;
             rp->info.pipe.fd = STDOUT_FILENO;
             rp->info.pipe.write = 1;
@@ -208,6 +210,7 @@ int getCommands(const char* line, Command* command)
                 command->argc++;
                 /* add redirect */
                 rp = (Redirect*) malloc(sizeof(Redirect));
+                memset(rp, 0, sizeof(Redirect));
                 rp->type = RT_PIPE;
                 rp->info.pipe.fd = STDIN_FILENO;
                 rp->info.pipe.write = 0;
@@ -256,7 +259,7 @@ void freeCommands(Command* commands, int count)
         for (int j = 0; j < cp->redirectc; j++) free(cp->redirects[j]);
         free(cp->redirects);
         cp->redirects = NULL;
-        cp->argc = 0;
+        cp->redirectc = 0;
         /* other params */
         cp->errno = 0;
         cp->pipe = 0;
