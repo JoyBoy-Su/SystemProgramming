@@ -8,15 +8,15 @@
 
 #define LINE_LENGTH 512
 
-void mygetline(char* line);
-
 int main(int argc, char const *argv[])
 {
     // define some variables ...
     char line[LINE_LENGTH] = {0};
-    Command* commands = NULL;
     int pipe_ids[2] = {0};
     PipeState pstate;
+
+    Command commands[COMMAND_CNT_PER_LINE];
+    for (int i = 0; i < COMMAND_CNT_PER_LINE; i++) initCommand(commands + i);
 
     // loop
     while (1)
@@ -50,13 +50,13 @@ int main(int argc, char const *argv[])
                 {
                     // TODO: error handler
                 }
-                /* write proc */
-                command->redirects[command->redirectc - 1].info.pipe.pipe_fd[PIPE_WPORT] = pipe_ids[PIPE_WPORT];
-                command->redirects[command->redirectc - 1].info.pipe.pipe_fd[PIPE_RPORT] = pipe_ids[PIPE_RPORT];
-                /* read proc */
+                /* write proc (last redirect object) */
+                command->redirects[command->redirectc - 1]->info.pipe.pipe_fd[PIPE_RPORT] = pipe_ids[PIPE_RPORT];
+                command->redirects[command->redirectc - 1]->info.pipe.pipe_fd[PIPE_WPORT] = pipe_ids[PIPE_WPORT];
+                /* read proc (first redirect object) */
                 Command* next = command + 1;
-                next->redirects[next->redirectc - 1].info.pipe.pipe_fd[PIPE_WPORT] = pipe_ids[PIPE_WPORT];
-                next->redirects[next->redirectc - 1].info.pipe.pipe_fd[PIPE_RPORT] = pipe_ids[PIPE_RPORT];
+                next->redirects[0]->info.pipe.pipe_fd[PIPE_RPORT] = pipe_ids[PIPE_RPORT];
+                next->redirects[0]->info.pipe.pipe_fd[PIPE_WPORT] = pipe_ids[PIPE_WPORT];
                 /* init pipe state */
                 initPipe(&pstate);
             }
@@ -97,15 +97,4 @@ int main(int argc, char const *argv[])
     }
     
     return 0;
-}
-
-void mygetline(char* line)
-{
-    int character, last = 0, index = 0;
-    while ((character = getc(stdin)) != '\n')
-    {
-        if (character == ' ' && last == ' ') continue;  /* clear blank */
-        line[index++] = (char) character;
-        last = character;
-    }
 }
